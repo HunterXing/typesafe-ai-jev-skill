@@ -8,7 +8,8 @@ TypeSafe System One 契约的自定义 Provider 调用 Jev。
 ## 全局位置
 
 - Skill：`/Users/xingheng/.minimax/skills/typesafe-ai-jev-skill/`
-- 私密配置：`/Users/xingheng/.minimax/secrets/typesafe-ai-jev-skill.json`
+- 私密配置：`~/.minimax/secrets/typesafe-ai-jev-skill.json`（可用
+  `JEV_SKILL_CONFIG` 覆盖）
 - 官方市场插件 `typesafe:typesafe-ai` 保持不变。
 
 ## 配置模型

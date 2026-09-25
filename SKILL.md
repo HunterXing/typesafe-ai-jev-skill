@@ -20,8 +20,31 @@ If the user only wants conceptual TypeSafe design and no live API call, read the
 The global skill uses this private, Git-untracked file by default:
 
 ```text
-/Users/xingheng/.minimax/secrets/typesafe-ai-jev-skill.json
+~/.minimax/secrets/typesafe-ai-jev-skill.json
 ```
+
+`~/.minimax` is the active Mavis data directory for the current OS user. The
+configuration is shared by agents running as that user, but the runtime does
+not inject it automatically. Every agent must load this Skill and follow the
+discovery sequence below.
+
+### Agent discovery sequence
+
+1. Load this Skill and use the `Location:` directory returned by the `skill`
+   tool as `SKILL_ROOT`; do not assume the agent's current working directory.
+2. Use `JEV_SKILL_CONFIG` when the deployment provides an override; otherwise
+   use `$HOME/.minimax/secrets/typesafe-ai-jev-skill.json`.
+3. Run the verifier with that path. It reads the config without printing the
+   secret:
+
+   ```bash
+   node "$SKILL_ROOT/scripts/verify-config.mjs" \
+     --config "${JEV_SKILL_CONFIG:-$HOME/.minimax/secrets/typesafe-ai-jev-skill.json}"
+   ```
+
+4. If the file is missing or incomplete, report the missing field and open that
+   same path in Zed. Do not scan unrelated secret directories and do not copy
+   the key into the conversation.
 
 The file is provider-neutral. Its fields are:
 
@@ -43,7 +66,8 @@ For generated applications, load equivalent values from the project's deployment
 1. Validate the custom configuration without network access:
 
    ```bash
-   node scripts/verify-config.mjs
+   node "$SKILL_ROOT/scripts/verify-config.mjs" \
+     --config "${JEV_SKILL_CONFIG:-$HOME/.minimax/secrets/typesafe-ai-jev-skill.json}"
    ```
 
    Use `--config <path>` to test another config file. The command reports provider name, base URL, endpoint, model, authentication header/scheme, and key presence, but never the key. A missing, placeholder, malformed, or incomplete value returns nonzero.
@@ -127,7 +151,9 @@ For generated applications, load equivalent values from the project's deployment
 8. Run a live smoke test only when the user explicitly requests it and the private config is complete:
 
    ```bash
-   node scripts/verify-config.mjs --smoke
+   node "$SKILL_ROOT/scripts/verify-config.mjs" \
+     --config "${JEV_SKILL_CONFIG:-$HOME/.minimax/secrets/typesafe-ai-jev-skill.json}" \
+     --smoke
    ```
 
    This sends one minimal Noul request, which may incur provider charges. Treat non-2xx, malformed responses, connection failures, and timeouts as failures. The verifier intentionally does not echo provider error bodies because a gateway may reflect credentials or user content.
@@ -154,4 +180,4 @@ For implementation work, deliver:
 
 ## Windows (win32) platform notes
 
-Run the same Node.js checker with `node scripts/verify-config.mjs`. Keep the private JSON file outside the Skill repository and restrict it to the current user. Do not place credentials in repository files.
+Run the same Node.js checker with `node "$SKILL_ROOT/scripts/verify-config.mjs"`. Resolve `$HOME` from the current user and keep the private JSON file outside the Skill repository. Restrict it to that user and do not place credentials in repository files.

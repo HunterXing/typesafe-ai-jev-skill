@@ -1,10 +1,13 @@
 # 自定义 Provider 配置参考
 
-本 Skill 不绑定任何默认 Provider。实际值来自私密配置文件：
+本 Skill 不绑定任何默认 Provider。实际值来自用户级私密配置文件：
 
 ```text
-/Users/xingheng/.minimax/secrets/typesafe-ai-jev-skill.json
+~/.minimax/secrets/typesafe-ai-jev-skill.json
 ```
+
+该路径相对于每个 Agent 所属 OS 用户的 `$HOME`。同一用户下的所有 Mavis Agent
+共享此文件；也可以用 `JEV_SKILL_CONFIG` 指向其他私密配置路径。
 
 ## 配置结构
 

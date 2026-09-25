@@ -4,6 +4,20 @@
 
 > **English summary:** A provider-neutral, Agent Skills-compatible Skill for TypeSafe System One / Jev. It supports configurable API roots, models, authentication, typed Choice / Score / Noul questions, safe configuration validation, and optional live smoke tests without exposing credentials.
 
+## 安装
+
+安装 `typesafe-ai-jev-skill` 技能。如果你在支持 Agent Skills 的 Coding Agent 中工作（例如 Claude Code 或 OpenCode），请运行：
+
+```bash
+npx skills add HunterXing/typesafe-ai-jev-skill --skill typesafe-ai-jev-skill
+```
+
+安装过程中请选择你的 Coding Agent；命令会将技能安装到所选客户端支持的位置。安装完成后，你可以直接阅读该技能的说明文档：
+
+<https://github.com/HunterXing/typesafe-ai-jev-skill/blob/main/SKILL.md>
+
+之后在需要 Jev、System One、Choice、Score、Noul 或其他结构化决策的开发任务中，即可使用 `typesafe-ai-jev-skill`。
+
 ## 这个 Skill 解决什么问题
 
 普通提示词经常把“理解语义”和“输出 JSON”混在一起，调用方还要自己处理模型措辞、格式错误和不确定结果。本 Skill 将这类判断拆成稳定的类型化问题：

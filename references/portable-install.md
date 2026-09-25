@@ -47,6 +47,18 @@ an installation there.
 
 ## Install
 
+### CLI-assisted install
+
+For agents supported by the `skills` CLI, install this single-skill repository with:
+
+```bash
+npx skills add HunterXing/typesafe-ai-jev-skill --skill typesafe-ai-jev-skill
+```
+
+Select the target agent in the CLI prompt. Use the client-specific path below only when the CLI is unavailable or when a manual installation is required.
+
+### Manual install
+
 Copy the Skill content into the chosen agent skill directory as:
 
 ```text

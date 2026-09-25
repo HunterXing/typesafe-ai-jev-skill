@@ -4,35 +4,46 @@
 
 This repository is an Agent Skills-compatible Skill. Install it into the user
 skill directory of the target coding agent, then create one private JSON config
-for that agent installation. Mavis, Codex, Claude Code, and other agents that
-support Agent Skills can share the same Skill files and configuration schema.
+for that agent installation. Coding agents that support Agent Skills can share
+the same Skill files and configuration schema.
 
-The Skill does not depend on Mavis-specific APIs, `~/.minimax`, or a particular
-provider.
+The Skill does not depend on a particular agent API, runtime path, or provider.
 
 ## Discover the agent's user skill directory
 
 Use the target agent's documented user-level Skill location. For maximum
 cross-client interoperability, use the Agent Skills interoperability directory
-when the client scans it:
+when the client scans it.
+
+### Recommended paths
 
 | Agent or standard | User skill directory |
 | --- | --- |
 | Agent Skills interoperability convention | `~/.agents/skills/` |
-| Mavis native directory | `~/.minimax/skills/` |
-| Codex documented user directory | `$HOME/.agents/skills/` |
+| OpenCode | `~/.config/opencode/skills/` or `~/.agents/skills/` |
 | Claude Code | `~/.claude/skills/` |
-| Other Agent Skills clients | The client's documented user-level directory |
 
-Codex currently documents `$HOME/.agents/skills/`; some older examples also use
-`~/.codex/skills/`. Prefer the client's current official documentation over a
-legacy path. If multiple local clients scan `~/.agents/skills/`, one installation
-there is shared by those clients. Mavis still requires its own installation under
-`~/.minimax/skills/`.
+For a client that does not scan the interoperability directory, use that
+client's documented user-level directory. If a client does not support user-level
+Skills, install the repository into a project `.agents/skills/` or equivalent
+supported project directory instead. Do not assume one agent's path is visible
+to another.
 
-If a client does not support user-level Skills, install the repository into a
-project `.agents/skills/` or equivalent supported project directory instead.
-Do not guess that one agent's path is visible to another.
+### Compatibility references
+
+Some clients and older versions use additional locations. These are retained
+as migration references, not as the default installation requirement:
+
+| Compatibility reference | User skill directory |
+| --- | --- |
+| Native Mavis directory | `~/.minimax/skills/` |
+| Codex interoperability path | `$HOME/.agents/skills/` |
+| Older Codex examples | `~/.codex/skills/` |
+
+Prefer the target client's current official documentation over a legacy path.
+If multiple clients scan `~/.agents/skills/`, one installation there may be
+shared by those clients. A client with its own native directory still requires
+an installation there.
 
 ## Install
 

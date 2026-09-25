@@ -16,8 +16,8 @@ If the user only wants conceptual TypeSafe design and no live API call, read the
 
 ## Provider configuration
 
-This Skill is Agent Skills-compatible and is not bound to Mavis, Codex, Claude
-Code, or a particular provider. On a new computer, install the Skill content into the target agent's documented
+This Skill is Agent Skills-compatible and is not bound to a particular agent or
+provider. On a new computer, install the Skill content into the target agent's documented
 user-level skill directory, then create the private JSON config described in
 `references/portable-install.md`. The repository is source code; copy the Skill
 content rather than relying on its original checkout path.
@@ -42,8 +42,8 @@ client, and use this discovery order:
 On the same computer, different agents can share the same config file after each
 installs the Skill in its own client directory. On another computer, copy the
 Skill and create a separate private config; never commit or sync the key with
-Git. Read `references/portable-install.md` for paths, install steps, Windows
-PowerShell notes, and acceptance checks.
+Git. Read `references/portable-install.md` for current agent paths, compatibility
+references, Windows PowerShell notes, and acceptance checks.
 
 The config template is `references/config.example.json`. Copy it to the resolved
 private config path, fill it outside Git, and let the verifier validate the

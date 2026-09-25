@@ -7,3 +7,6 @@ htmlcov/
 .env.*
 *.log
 .DS_Store
+
+# Internal design and implementation artifacts
+docs/superpowers/

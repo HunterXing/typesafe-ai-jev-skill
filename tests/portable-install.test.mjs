@@ -83,6 +83,7 @@ test("portable install reference names supported agent locations", async () => {
     join(SKILL_ROOT, "references/portable-install.md"),
     "utf8",
   );
+  assert.match(text, /~\/\.config\/opencode\/skills\//);
   assert.match(text, /~\/\.agents\/skills\//);
   assert.match(text, /~\/\.minimax\/skills\//);
   assert.match(text, /~\/\.claude\/skills\//);
@@ -90,7 +91,7 @@ test("portable install reference names supported agent locations", async () => {
   assert.match(text, /PowerShell/);
 });
 
-test("default config path is portable and not Mavis-specific", async () => {
+test("default config path is portable and agent-independent", async () => {
   const { DEFAULT_CONFIG_PATH } = await import("../scripts/verify-config.mjs");
   assert.equal(
     DEFAULT_CONFIG_PATH,

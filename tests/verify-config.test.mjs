@@ -26,9 +26,11 @@ function config(overrides = {}) {
     model: "test/jev",
     apiKey: SECRET,
     apiKeyEnv: "",
-    systemOnePath: "v1/systemone",
+    protocol: "systemone",
+    endpointPath: "v1/systemone",
     authHeader: "Authorization",
     authScheme: "Bearer",
+    extraHeaders: {},
     timeoutSeconds: 30,
     ...overrides,
   };
@@ -143,6 +145,41 @@ test("builds the custom provider smoke payload", () => {
   });
 });
 
+test("supports custom extra headers without overriding managed auth", () => {
+  const result = validateConfig(
+    config({ extraHeaders: { "x-tenant": "tenant-a" } }),
+  );
+  assert.equal(result.extraHeaders["x-tenant"], "tenant-a");
+  assert.throws(
+    () =>
+      validateConfig(
+        config({ extraHeaders: { Authorization: "Bearer other" } }),
+      ),
+    /cannot be overridden/,
+  );
+  assert.throws(
+    () => validateConfig(config({ protocol: "responses" })),
+    /protocol must be/,
+  );
+});
+
+test("chat protocol builds reachability payload", () => {
+  const result = buildSmokePayload(
+    validateConfig(
+      config({
+        protocol: "chat",
+        endpointPath: "v1/chat/completions",
+      }),
+    ),
+  );
+  assert.deepEqual(result, {
+    model: "test/jev",
+    messages: [{ role: "user", content: "Reply with the single word OK." }],
+    max_tokens: 8,
+    stream: false,
+  });
+});
+
 test("loads a private config file without exposing the key", async () => {
   const path = await writeConfigFile(config());
   const result = await loadConfigFile(path);
@@ -200,6 +237,23 @@ test("smoke uses the custom endpoint, auth header, and model", async () => {
   assert.equal(observed.init.headers["x-api-key"], SECRET);
   assert.equal(JSON.parse(observed.init.body).model, "test/jev");
   assert.match(result.message, /model=test\/jev-2026/);
+});
+
+test("chat protocol validates chat reachability response", () => {
+  const custom = validateConfig(
+    config({ protocol: "chat", endpointPath: "v1/chat/completions" }),
+  );
+  const result = summarizeResponse(
+    200,
+    JSON.stringify({
+      model: "test/jev-chat",
+      choices: [{ message: { role: "assistant", content: "OK" } }],
+    }),
+    custom,
+  );
+  assert.equal(result.ok, true);
+  assert.match(result.message, /reachability verified/);
+  assert.match(result.message, /model=test\/jev-chat/);
 });
 
 test("non-2xx smoke response is a failure", async () => {

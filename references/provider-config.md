@@ -1,13 +1,13 @@
 # 自定义 Provider 配置参考
 
-本 Skill 不绑定任何默认 Provider。实际值来自用户级私密配置文件：
+本 Skill 不绑定任何默认 Provider。实际值来自跨 Agent 的用户级私密配置文件：
 
 ```text
-~/.minimax/secrets/typesafe-ai-jev-skill.json
+~/.config/typesafe-ai-jev-skill.json
 ```
 
-该路径相对于每个 Agent 所属 OS 用户的 `$HOME`。同一用户下的所有 Mavis Agent
-共享此文件；也可以用 `JEV_SKILL_CONFIG` 指向其他私密配置路径。
+也可用 `JEV_SKILL_CONFIG` 指向其他私密配置路径。安装和跨机器迁移步骤见
+`portable-install.md`。
 
 ## 配置结构
 
@@ -18,16 +18,22 @@
   "model": "your-model-id",
   "apiKey": "your-key",
   "apiKeyEnv": "",
-  "systemOnePath": "v1/systemone",
+  "protocol": "systemone",
+  "endpointPath": "v1/systemone",
   "authHeader": "Authorization",
   "authScheme": "Bearer",
+  "extraHeaders": {},
   "timeoutSeconds": 30
 }
 ```
 
 - `apiKey` 与 `apiKeyEnv` 二选一。推荐生产环境使用 secret manager，并在
   `apiKeyEnv` 中填写环境变量名；本地人工测试可以填写 `apiKey`。
-- `systemOnePath` 允许自定义 Provider 使用不同路径。`baseUrl` 也可以填写完整
+- `protocol` 必须是 `systemone` 或 `chat`。
+  - `systemone`：使用 TypeSafe System One 结构化协议。
+  - `chat`：仅用于验证某些网关的 chat-completions 可达性；不能证明 Jev 的
+    Choice/Score/Noul 结构兼容。
+- `endpointPath` 允许自定义 Provider 使用不同路径。`baseUrl` 也可以填写完整
   System One 端点，验证器会去掉重复后缀。
 - 常见认证：
   - `Authorization` + `Bearer` + key。
@@ -93,9 +99,11 @@ TypeSafe 官方服务只是一个可选配置，不是本 Skill 默认值：
   "baseUrl": "https://api.typesafe.ai",
   "model": "jev-latest",
   "apiKeyEnv": "TYPESAFE_API_KEY",
-  "systemOnePath": "v1/systemone",
+  "protocol": "systemone",
+  "endpointPath": "v1/systemone",
   "authHeader": "Authorization",
-  "authScheme": "Bearer"
+  "authScheme": "Bearer",
+  "extraHeaders": {}
 }
 ```
 
@@ -113,5 +121,6 @@ node --test tests/verify-config.test.mjs
 node scripts/verify-config.mjs --smoke
 ```
 
-Smoke 会发送一个极小的 Noul 请求，可能产生费用。非 2xx、超时、连接失败或响应
+Smoke 会发送一个极小的请求，可能产生费用。System One 模式检查 Noul；chat 模式
+只检查认证和消息可达性，不能证明类型化决策兼容。非 2xx、超时、连接失败或响应
 不兼容都会返回非零退出码。

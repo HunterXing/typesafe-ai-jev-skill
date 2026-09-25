@@ -1,0 +1,21 @@
+# Config for providers that do not use the TypeSafe System One shape
+#
+# Some compatible gateways may expose Jev through a chat-completions-compatible
+# route instead of POST /v1/systemone. Set protocol to "chat" and endpointPath
+# to the provider's OpenAI-compatible chat endpoint. The verifier then sends a
+# text/chat request and can only validate authentication and service reachability;
+# it cannot prove typed System One compatibility.
+
+{
+  "providerName": "",
+  "baseUrl": "",
+  "model": "",
+  "apiKey": "",
+  "apiKeyEnv": "",
+  "protocol": "systemone",
+  "endpointPath": "v1/systemone",
+  "authHeader": "Authorization",
+  "authScheme": "Bearer",
+  "extraHeaders": {},
+  "timeoutSeconds": 30
+}

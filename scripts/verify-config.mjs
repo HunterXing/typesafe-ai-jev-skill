@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
 import { readFile, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { execFile } from "node:child_process";
+import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import process from "node:process";
+
+const execFileAsync = promisify(execFile);
 
 export const DEFAULT_CONFIG_PATH = join(
   homedir(),
-  ".minimax",
-  "secrets",
+  ".config",
   "typesafe-ai-jev-skill.json",
 );
 export const SYSTEM_ONE_PATH = "v1/systemone";
@@ -45,11 +48,11 @@ function isPlaceholderSecret(value) {
   );
 }
 
-function normalizeSystemOnePath(raw) {
+function normalizeEndpointPath(raw) {
   if (raw === undefined || raw === null || raw === "") return SYSTEM_ONE_PATH;
   const value = String(raw).trim();
   if (value.includes("://") || value.includes("?") || value.includes("#")) {
-    throw new ConfigError("systemOnePath must be a URL path without query or fragment");
+    throw new ConfigError("endpointPath must be a URL path without query or fragment");
   }
   return value.replace(/^\/+|\/+$/g, "");
 }
@@ -96,7 +99,7 @@ export function normalizeBaseUrl(raw, systemOnePath = SYSTEM_ONE_PATH) {
   }
 
   let path = parsed.pathname.replace(/\/+$/, "");
-  const normalizedPath = normalizeSystemOnePath(systemOnePath);
+  const normalizedPath = normalizeEndpointPath(systemOnePath);
   if (
     normalizedPath &&
     path.toLowerCase().endsWith(`/${normalizedPath.toLowerCase()}`)
@@ -110,6 +113,46 @@ export function normalizeBaseUrl(raw, systemOnePath = SYSTEM_ONE_PATH) {
       ? `${baseUrl}/${normalizedPath}`
       : baseUrl;
   return { baseUrl, endpoint };
+}
+
+async function hasWindowsUserAcl(configPath) {
+  try {
+    const { stdout } = await execFileAsync("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$path = $args[0]; (Get-Acl -LiteralPath $path).Access | ForEach-Object { \"$($_.IdentityReference)|$($_.FileSystemRights)|$($_.AccessControlType)|$($_.IsInherited)\" }",
+      configPath,
+    ], { windowsHide: true });
+    const currentUser = userInfo().username.toLowerCase();
+    const entries = stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [identity, rights, type, inherited] = line.split("|");
+        return {
+          identity: identity.toLowerCase(),
+          rights: Number(rights),
+          type,
+          inherited: inherited.toLowerCase() === "true",
+        };
+      });
+    const allowEntries = entries.filter(
+      (entry) => entry.type === "allow" && !entry.inherited,
+    );
+    const hasCurrentUser = allowEntries.some((entry) => {
+      const name = entry.identity.split("\\").at(-1);
+      return name === currentUser || name === "system" || name === "administrators";
+    });
+    const broadAllow = allowEntries.some((entry) => {
+      const name = entry.identity.split("\\").at(-1);
+      return ["everyone", "users", "authenticated users", "guests"].includes(name);
+    });
+    return hasCurrentUser && !broadAllow;
+  } catch {
+    return false;
+  }
 }
 
 export async function loadConfigFile(
@@ -129,6 +172,12 @@ export async function loadConfigFile(
   if (process.platform !== "win32" && (file.mode & 0o077) !== 0) {
     throw new ConfigError(
       "config file permissions are too broad; run: chmod 600 <config-path>",
+    );
+  }
+
+  if (process.platform === "win32" && !(await hasWindowsUserAcl(configPath))) {
+    throw new ConfigError(
+      "config file must be readable only by the current Windows user; restrict its NTFS ACL",
     );
   }
 
@@ -165,8 +214,15 @@ export function validateConfig(source, env = process.env) {
     throw new ConfigError("model must be a provider model identifier");
   }
 
-  const systemOnePath = normalizeSystemOnePath(source.systemOnePath);
-  const { baseUrl, endpoint } = normalizeBaseUrl(source.baseUrl, systemOnePath);
+  const protocol = String(source.protocol ?? "systemone").trim().toLowerCase();
+  if (protocol !== "systemone" && protocol !== "chat") {
+    throw new ConfigError('protocol must be "systemone" or "chat"');
+  }
+
+  const endpointPath = normalizeEndpointPath(
+    source.endpointPath ?? source.systemOnePath,
+  );
+  const { baseUrl, endpoint } = normalizeBaseUrl(source.baseUrl, endpointPath);
 
   const apiKeyEnv = String(source.apiKeyEnv ?? "").trim();
   const inlineApiKey = String(source.apiKey ?? "").trim();
@@ -195,6 +251,24 @@ export function validateConfig(source, env = process.env) {
 
   const authHeader = normalizeAuthHeader(source.authHeader);
   const authScheme = normalizeAuthScheme(source.authScheme);
+  const extraHeaders = source.extraHeaders ?? {};
+  if (!extraHeaders || typeof extraHeaders !== "object" || Array.isArray(extraHeaders)) {
+    throw new ConfigError("extraHeaders must be a JSON object");
+  }
+  const safeExtraHeaders = {};
+  for (const [name, value] of Object.entries(extraHeaders)) {
+    normalizeAuthHeader(name);
+    if (typeof value !== "string" || /[\r\n]/.test(value)) {
+      throw new ConfigError(`extraHeaders.${name} must be a single-line string`);
+    }
+    const lowerName = name.toLowerCase();
+    if (["authorization", "content-length", "host"].includes(lowerName)) {
+      throw new ConfigError(
+        `extraHeaders.${name} is managed by the verifier and cannot be overridden`,
+      );
+    }
+    safeExtraHeaders[name] = value;
+  }
   const timeoutSeconds = Number(source.timeoutSeconds ?? 30);
   if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
     throw new ConfigError("timeoutSeconds must be a positive number");
@@ -209,8 +283,10 @@ export function validateConfig(source, env = process.env) {
     apiKeySource,
     authHeader,
     authScheme,
+    extraHeaders: safeExtraHeaders,
+    protocol,
+    endpointPath,
     timeoutSeconds,
-    systemOnePath,
   };
 }
 
@@ -221,6 +297,19 @@ export function buildAuthorizationHeader(config) {
 }
 
 export function buildSmokePayload(config) {
+  if (config.protocol === "chat") {
+    return {
+      model: config.model,
+      messages: [
+        {
+          role: "user",
+          content: "Reply with the single word OK.",
+        },
+      ],
+      max_tokens: 8,
+      stream: false,
+    };
+  }
   return {
     model: config.model,
     state: "Provider configuration smoke test.",
@@ -273,6 +362,24 @@ export function summarizeResponse(status, body, config) {
     return { ok: false, status, message: safeHttpCategory(status) };
   }
 
+  if (config.protocol === "chat") {
+    const choice = Array.isArray(parsed.choices) ? parsed.choices[0] : undefined;
+    const content = choice?.message?.content;
+    if (typeof content !== "string") {
+      return {
+        ok: false,
+        status,
+        message: "chat provider response did not contain message content",
+      };
+    }
+    const model = typeof parsed.model === "string" ? parsed.model : config.model;
+    return {
+      ok: true,
+      status,
+      message: `chat reachability verified, model=${model}, content length=${content.length}`,
+    };
+  }
+
   const answer =
     parsed.answers && typeof parsed.answers === "object"
       ? parsed.answers[SMOKE_QUESTION_ID]
@@ -312,6 +419,7 @@ export async function runSmoke(config, { fetchImpl = fetch } = {}) {
     const response = await fetchImpl(config.endpoint, {
       method: "POST",
       headers: {
+        ...config.extraHeaders,
         [config.authHeader]: buildAuthorizationHeader(config),
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -370,7 +478,7 @@ Usage:
 
 Options:
   --config <path>  Config JSON (default: ${DEFAULT_CONFIG_PATH})
-  --smoke          Send one minimal billable System One request
+  --smoke          Send one minimal billable request using the configured protocol
   -h, --help       Show this help
 
 Without --smoke, this command does not make a network request. It never prints
@@ -402,8 +510,9 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   console.log(`Config:     ${args.configPath}`);
   console.log(`Provider:   ${config.providerName}`);
   console.log(`Base URL:   ${config.baseUrl}`);
-  console.log(`Endpoint:   ${config.endpoint}`);
   console.log(`Model:      ${config.model}`);
+  console.log(`Protocol:   ${config.protocol}`);
+  console.log(`Endpoint:   ${config.endpoint}`);
   console.log(`Auth:       ${config.authHeader} (${config.authScheme || "raw key"})`);
   console.log(`Key source: ${config.apiKeySource}; value hidden`);
 
